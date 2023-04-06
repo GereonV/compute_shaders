@@ -11,7 +11,8 @@ enum class shader_image_access : GLenum {
 
 class texture_manager {
 public:
-	texture_manager() = default;
+	// !width || !height causes UB
+	texture_manager(GLsizei width, GLsizei height) noexcept;
 	texture_manager(texture_manager const &) = delete;
 	~texture_manager();
 	// !width || !height causes UB
@@ -19,7 +20,7 @@ public:
 	void bind_to_texture_unit(GLuint unit) const noexcept;
 	void bind_to_image_unit(GLuint unit, shader_image_access access) const noexcept;
 private:
-	GLuint _texture{}; // GL_TEXTURE_IMMUTABLE_FORMAT
+	GLuint _texture; // GL_TEXTURE_IMMUTABLE_FORMAT
 };
 
 #endif // CS_MANAGERS_HPP

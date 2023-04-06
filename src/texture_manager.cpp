@@ -1,5 +1,10 @@
 #include "managers.hpp"
 
+texture_manager::texture_manager(GLsizei width, GLsizei height) noexcept {
+	glCreateTextures(GL_TEXTURE_2D, 1, &_texture);
+	glTextureStorage2D(_texture, 1, GL_RGBA32F, width, height);
+}
+
 texture_manager::~texture_manager() {
 	glDeleteTextures(1, &_texture);
 }

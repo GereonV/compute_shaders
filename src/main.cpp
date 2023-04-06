@@ -11,8 +11,8 @@ struct glfw_context {
 	~glfw_context() { glfwTerminate(); }
 };
 
+static bool framebuffer_changed{};
 static GLsizei width, height;
-static texture_manager manager;
 
 int main() {
 	if(!glfwInit())
@@ -21,13 +21,14 @@ int main() {
 	auto window = glfwCreateWindow(1920, 1080, "Compute Shaders", nullptr, nullptr);
 	if(!window)
 		ERROR_FROM_MAIN("glfwCreateWindow() failed\n");
+	glfwGetFramebufferSize(window, &width, &height);
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(0);
 	glfwSetFramebufferSizeCallback(window, [](GLFWwindow *, int width, int height) {
+		framebuffer_changed = true;
 		::width = width;
 		::height = height;
 		glViewport(0, 0, width, height);
-		manager.reset(width, height);
 	});
 	if(!gladLoadGL())
 		ERROR_FROM_MAIN("gladLoadGL() failed\n");
@@ -61,11 +62,14 @@ int main() {
 	// glNamedBufferData(ssbo, sizeof(float) * 4 * 1920 * 1080, nullptr, GL_DYNAMIC_COPY);
 	// float * shader_storage = new float[4 * 1920 * 1080];
 	// glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
-	glfwGetFramebufferSize(window, &width, &height);
-	manager.reset(width, height);
+	texture_manager manager{width, height};
 	while(!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
 		compute_program.use_program();
+		if(framebuffer_changed) {
+			manager.reset(width, height);
+			framebuffer_changed = false;
+		}
 		manager.bind_to_image_unit(0, shader_image_access::write_only);
 		glDispatchCompute(width, height, 1);
 		// glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
