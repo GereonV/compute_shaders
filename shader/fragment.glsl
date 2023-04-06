@@ -1,8 +1,9 @@
 #version 460
 
 in vec2 uvCoords;
+layout(binding = 0) uniform sampler2D uSampler;
 out vec4 outColor;
 
 void main() {
-	outColor = vec4(uvCoords.xy, 0, 1);
+	outColor = texture(uSampler, uvCoords);
 }
