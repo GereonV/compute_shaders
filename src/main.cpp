@@ -18,6 +18,10 @@ int main() {
 	if(!window)
 		ERROR_FROM_MAIN("glfwCreateWindow() failed\n");
 	glfwMakeContextCurrent(window);
+	glfwSwapInterval(0);
+	glfwSetFramebufferSizeCallback(window, [](GLFWwindow * window, int width, int height) {
+		glViewport(0, 0, width, height);
+	});
 	if(!gladLoadGL())
 		ERROR_FROM_MAIN("gladLoadGL() failed\n");
 	shader_program_builder builder;
@@ -45,12 +49,10 @@ int main() {
 	glEnableVertexAttribArray(0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 	glNamedBufferData(ebo, sizeof(indices), indices, GL_STATIC_DRAW);
+	program.use_program();
 	while(!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
-		program.use_program();
-		glBindVertexArray(vao);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
-		glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(*indices), GL_UNSIGNED_BYTE, nullptr);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
