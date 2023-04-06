@@ -65,11 +65,11 @@ int main() {
 	texture_manager manager{width, height};
 	while(!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
-		compute_program.use_program();
 		if(framebuffer_changed) {
-			manager.reset(width, height);
 			framebuffer_changed = false;
+			manager.reset(width, height);
 		}
+		compute_program.use_program();
 		manager.bind_to_image_unit(0, shader_image_access::write_only);
 		glDispatchCompute(width, height, 1);
 		// glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
