@@ -3,6 +3,9 @@
 #include <random>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include "managers.hpp"
 #include "shader.hpp"
 #include "shadersrc.hpp"
@@ -12,6 +15,53 @@
 struct glfw_context {
 	~glfw_context() { glfwTerminate(); }
 };
+
+struct imgui_context {
+	imgui_context(GLFWwindow * win) noexcept {
+		ImGui::CreateContext();
+		ImGui_ImplGlfw_InitForOpenGL(win, true);
+		ImGui_ImplOpenGL3_Init();
+	}
+
+	~imgui_context() {
+		ImGui_ImplOpenGL3_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
+		ImGui::DestroyContext();
+	}
+};
+
+struct imgui_frame {
+	imgui_frame() noexcept {
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+	}
+
+	~imgui_frame() {
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	}
+};
+
+#define PI 3.1415926535897932384626433832795f
+static auto move_speed = 0.15f, turn_speed = PI, decay_rate = 0.1f, diffuse_rate = 3.0f;
+
+inline void draw_imgui() noexcept {
+	static bool open;
+	imgui_frame _frame;
+	if(!open) {
+		if(!ImGui::IsKeyPressed(ImGuiKey_S, false))
+			return;
+		open = true;
+	}
+	if(ImGui::Begin("Settings", &open)) {
+		ImGui::DragFloat("Move Speed", &move_speed, 0.005f, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
+		// ImGui::DragFloat("Turn Speed", &diffuse_rate, 0.5f, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
+		ImGui::DragFloat("Decay Rate", &decay_rate, 0.05f, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
+		ImGui::DragFloat("Diffuse Rate", &diffuse_rate, 0.05f, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
+	}
+	ImGui::End();
+}
 
 static struct {
 	float x, y, angle, _;
@@ -85,6 +135,8 @@ int main() {
 	auto postprocess_program = builder.build(POSTPROCESS_GLSL);
 	if(builder.error())
 		ERROR_FROM_MAIN(builder.error_message());
+	imgui_context _imgui{window};
+	ImGui::GetIO().IniFilename = nullptr;
 	constexpr float vertices[]{
 		-1.0f, -1.0f, // bottom left
 		 1.0f, -1.0f, // bottom right
@@ -138,15 +190,20 @@ int main() {
 		slime_program.use_program();
 		glUniform1d(0, time);
 		glUniform1d(1, delta_time);
+		glUniform1f(2, move_speed);
+		glUniform1f(3, turn_speed);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		glDispatchCompute(sizeof(agents) / sizeof(*agents), 1, 1);
 		postprocess_program.use_program();
 		glUniform1d(0, delta_time);
+		glUniform1f(1, decay_rate);
+		glUniform1f(2, diffuse_rate);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		glDispatchCompute(width / 32 + 1, height / 32 + 1, 1);
 		render_program.use_program();
 		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT); // compute result
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
+		draw_imgui();
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 		last_time = time;
