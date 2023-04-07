@@ -116,6 +116,7 @@ int main() {
 	glNamedBufferData(ssbo, sizeof(agents), agents, GL_DYNAMIC_COPY); // TODO rethink usage
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
 	auto [manager, width, height] = framebuffer.create_texture_manager();
+	manager.clear();
 	manager.bind_to_image_unit(0, shader_image_access::read_write);
 	manager.bind_to_texture_unit(0);
 	double last_time{};
@@ -128,6 +129,7 @@ int main() {
 				width = new_width;
 				height = new_height;
 				manager.reset(width, height);
+				manager.clear();
 				manager.bind_to_image_unit(0, shader_image_access::read_write);
 				manager.bind_to_texture_unit(0);
 				glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);

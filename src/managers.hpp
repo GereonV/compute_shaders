@@ -17,6 +17,7 @@ public:
 	~texture_manager();
 	// !width || !height causes UB
 	void reset(GLsizei width, GLsizei height) noexcept;
+	void clear() const noexcept;
 	void bind_to_texture_unit(GLuint unit) const noexcept;
 	void bind_to_image_unit(GLuint unit, shader_image_access access) const noexcept;
 private:

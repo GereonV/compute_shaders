@@ -15,6 +15,10 @@ void texture_manager::reset(GLsizei width, GLsizei height) noexcept {
 	glTextureStorage2D(_texture, 1, GL_RGBA32F, width, height);
 }
 
+void texture_manager::clear() const noexcept {
+	glClearTexImage(_texture, 0, GL_RGBA, GL_FLOAT, nullptr);
+}
+
 void texture_manager::bind_to_texture_unit(GLuint unit) const noexcept {
 	glBindTextureUnit(unit, _texture);
 }
