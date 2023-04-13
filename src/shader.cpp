@@ -10,6 +10,7 @@ enum class shader_type : GLenum {
 	auto handle = glCreateShader(static_cast<GLenum>(type));
 	glShaderSource(handle, 1, &source, nullptr);
 	glCompileShader(handle);
+#ifdef _DEBUG
 	GLint success;
 	glGetShaderiv(handle, GL_COMPILE_STATUS, &success);
 	if(success)
@@ -17,6 +18,9 @@ enum class shader_type : GLenum {
 	glGetShaderInfoLog(handle, buffer_size, length, error_buffer);
 	glDeleteShader(handle);
 	return 0;
+#else // _DEBUG
+	return handle;
+#endif // _DEBUG
 }
 
 shader_program::shader_program(char const * compute_source, char * error_buffer, GLsizei buffer_size, GLsizei * length) noexcept {
@@ -28,6 +32,7 @@ shader_program::shader_program(char const * compute_source, char * error_buffer,
 	glLinkProgram(handle);
 	glDetachShader(handle, shader);
 	glDeleteShader(shader);
+#ifdef _DEBUG
 	GLint success;
 	glGetProgramiv(handle, GL_LINK_STATUS, &success);
 	if(success) {
@@ -36,6 +41,9 @@ shader_program::shader_program(char const * compute_source, char * error_buffer,
 	}
 	glGetProgramInfoLog(handle, buffer_size, length, error_buffer);
 	glDeleteProgram(handle);
+#else // _DEBUG
+      _handle = handle;
+#endif // _DEBUG
 }
 
 shader_program::shader_program(char const * vertex_source, char const * fragment_source, char * error_buffer, GLsizei buffer_size, GLsizei * length) noexcept {
@@ -55,6 +63,7 @@ shader_program::shader_program(char const * vertex_source, char const * fragment
 	glDetachShader(handle, fragment_shader);
 	glDeleteShader(vertex_shader);
 	glDeleteShader(fragment_shader);
+#ifdef _DEBUG
 	GLint success;
 	glGetProgramiv(handle, GL_LINK_STATUS, &success);
 	if(success) {
@@ -63,6 +72,9 @@ shader_program::shader_program(char const * vertex_source, char const * fragment
 	}
 	glGetProgramInfoLog(handle, buffer_size, length, error_buffer);
 	glDeleteProgram(handle);
+#else // _DEBUG
+      _handle = handle;
+#endif // _DEBUG
 }
 
 shader_program::~shader_program() {
