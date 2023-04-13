@@ -3,18 +3,22 @@
 layout(local_size_x = 1) in;
 
 struct Agent {
-	vec2 pos;
-	float angle;
+	vec2 pos; // ∈ [0, 1]
+	float angleRadians;
+	uint species; // ∈ [0, 3]
+};
+
+struct Species {
+	float moveSpeed;
+	float turnRadiansPerSecond;
+	float sensorSpacingRadians;
+	float sensorDistance;
 };
 
 #define PI 3.1415926535897932384626433832795
-
-layout(location = 0) uniform double time; // as seed
-layout(location = 1) uniform double deltaTime; // must be set
-layout(location = 2) uniform float moveSpeed = 0.15;
-layout(location = 3) uniform float turnSpeed = PI;
-layout(location = 4) uniform float sensorAngle = PI / 6;
-layout(location = 5) uniform float sensorDistance = 35;
+layout(location = 0) uniform float time; // as seed
+layout(location = 1) uniform float deltaTime;
+layout(location = 2) uniform Species species[4];
 layout(binding = 0, rgba32f) uniform image2D image;
 layout(binding = 0, std430) buffer _block_name {
 	Agent agents[];
@@ -37,9 +41,19 @@ uint randomState(uint index) {
 }
 
 float random01(inout uint state) {
-	float random = state / 4294967295.0;
+	const float MAX_UINT = 4294967295.0; // (2^16-1)
+	float random = state / MAX_UINT;
 	hash(state);
 	return random;
+}
+
+vec4 speciesMask(uint species) {
+	switch(species) {
+	case 0: return vec4(1, 0, 0, 0);
+	case 1: return vec4(0, 1, 0, 0);
+	case 2: return vec4(0, 0, 1, 0);
+	case 3: return vec4(0, 0, 0, 1);
+	}
 }
 
 void main() {
@@ -48,20 +62,17 @@ void main() {
 	if(index >= numAgents)
 		return;
 	Agent agent = agents[index];
-	vec2 dir = {cos(agent.angle), sin(agent.angle)};
-	float moveDistance = moveSpeed * float(deltaTime);
+	Species species = species[agent.species];
+	vec2 dir = {cos(agent.angleRadians), sin(agent.angleRadians)};
+	float moveDistance = species.moveSpeed * deltaTime;
 	vec2 newPos = agent.pos + dir * moveDistance;
-	uint state = randomState(index);
 	if(newPos.x < 0 || newPos.y < 0 || newPos.x > 1 || newPos.y > 1) {
 		newPos = clamp(newPos, 0, 1);
-		agents[index].angle = random01(state) * 2 * PI;
-	} else {
-		float turn = turnSpeed * random01(state) * float(deltaTime);
-		// agents[index].angle += turn;
+		uint state = randomState(index);
+		agents[index].angleRadians = random01(state) * 2 * PI; // new random angle
 	}
 	agents[index].pos = newPos;
 	ivec2 size = imageSize(image);
-	ivec2 imageCoords = ivec2(newPos * (size + 0.99999999));
-	imageStore(image, imageCoords, vec4(1));
-	ivec2 center = imageSize(image) / 2;
+	ivec2 imageCoords = min(ivec2(newPos * size), size - 1);
+	imageStore(image, imageCoords, speciesMask(agent.species));
 }

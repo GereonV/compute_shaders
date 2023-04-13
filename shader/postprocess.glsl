@@ -2,10 +2,21 @@
 
 layout(local_size_x = 32, local_size_y = 32) in;
 
-layout(location = 0) uniform double deltaTime; // must be set
+layout(location = 0) uniform float deltaTime; // must be set
 layout(location = 1) uniform float decayRate = 0.1; // must be non-negative
 layout(location = 2) uniform float diffuseRate = 3; // must be non-negative
+layout(location = 3) uniform vec3 species_colors[4];
 layout(binding = 0, rgba32f) uniform image2D image;
+layout(binding = 1, rgba32f) uniform image2D coloredImage;
+
+vec4 speciesMask(uint species) {
+	switch(species) {
+	case 0: return vec4(1, 0, 0, 0);
+	case 1: return vec4(0, 1, 0, 0);
+	case 2: return vec4(0, 0, 1, 0);
+	case 3: return vec4(0, 0, 0, 1);
+	}
+}
 
 void main() {
 	ivec2 size = imageSize(image);
@@ -21,4 +32,9 @@ void main() {
 	vec4 diffused = mix(original, blurred, diffuseRate * float(deltaTime));
 	vec4 decayed = max(diffused - decayRate * float(deltaTime), 0);
 	imageStore(image, pos, decayed);
+	// TODO color
+	vec3 colored = vec3(0);
+	for(uint species = 0; species < 4; ++species)
+		colored += dot(speciesMask(species), decayed) * species_colors[species];
+	imageStore(coloredImage, pos, vec4(colored, 1));
 }

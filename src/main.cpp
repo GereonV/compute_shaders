@@ -1,5 +1,5 @@
+#include <atomic>
 #include <iostream>
-#include <mutex>
 #include <random>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -30,84 +30,21 @@ struct imgui_context {
 	}
 };
 
-struct imgui_frame {
-	imgui_frame() noexcept {
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-	}
-
-	~imgui_frame() {
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-	}
-};
-
-#define PI 3.1415926535897932384626433832795f
-static auto move_speed = 0.15f, turn_speed = PI, decay_rate = 0.1f, diffuse_rate = 3.0f;
-
-inline void draw_imgui() noexcept {
-	static bool open;
-	imgui_frame _frame;
-	if(!open) {
-		if(!ImGui::IsKeyPressed(ImGuiKey_S, false))
-			return;
-		open = true;
-	}
-	if(ImGui::Begin("Settings", &open)) {
-		ImGui::DragFloat("Move Speed", &move_speed, 0.005f, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
-		// ImGui::DragFloat("Turn Speed", &diffuse_rate, 0.5f, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
-		ImGui::DragFloat("Decay Rate", &decay_rate, 0.05f, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
-		ImGui::DragFloat("Diffuse Rate", &diffuse_rate, 0.05f, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
-	}
-	ImGui::End();
+inline void imgui_new_frame() noexcept {
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
 }
 
-static struct {
-	float x, y, angle, _;
-} agents[1000];
+inline void imgui_render() noexcept {
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
 
-static class {
-public:
-	void init_unsynchronized(GLFWwindow * window) noexcept {
-		_changed = false;
-		glfwGetFramebufferSize(window, &_width, &_height);
-	}
-
-	void change(GLsizei width, GLsizei height) noexcept {
-		std::scoped_lock lock{_mutex};
-		_changed = true;
-		_width = width;
-		_height = height;
-	}
-
-	template<typename F>
-	void reset_and_call_if_changed(F && f) noexcept {
-		std::unique_lock lock{_mutex};
-		auto changed = _changed;
-		if(!changed)
-			return;
-		_changed = false;
-		lock.unlock();
-		static_cast<F &&>(f)(_width, _height);
-	}
-
-	[[nodiscard]] auto create_texture_manager() const noexcept {
-		struct result {
-			texture_manager manager;
-			GLsizei width, height;
-		};
-		_mutex.lock();
-		auto width = _width;
-		auto height = _height;
-		_mutex.unlock();
-		return result{{width, height}, width, height};
-	}
-private:
-	mutable std::mutex _mutex;
-	bool _changed;
-	GLsizei _width, _height;
-} framebuffer;
+// inline?
+static std::atomic_flag framebuffer_changed;
+static int width, height;
+static slime::agent agents[10000];
 
 int main() {
 	if(!glfwInit())
@@ -116,23 +53,18 @@ int main() {
 	auto window = glfwCreateWindow(1920, 1080, "Compute Shaders", nullptr, nullptr);
 	if(!window)
 		ERROR_FROM_MAIN("glfwCreateWindow() failed\n");
-	framebuffer.init_unsynchronized(window);
-	glfwMakeContextCurrent(window);
 	// glfwSwapInterval(0);
 	glfwSetFramebufferSizeCallback(window, [](GLFWwindow *, int width, int height) {
-		framebuffer.change(width, height);
+		::width = width;
+		::height = height;
+		framebuffer_changed.test_and_set(std::memory_order_release);
 		glViewport(0, 0, width, height);
 	});
+	glfwMakeContextCurrent(window);
 	if(!gladLoadGL())
 		ERROR_FROM_MAIN("gladLoadGL() failed\n");
 	shader_program_builder builder;
 	auto render_program = builder.build(VERTEX_GLSL, FRAGMENT_GLSL);
-	if(builder.error())
-		ERROR_FROM_MAIN(builder.error_message());
-	auto slime_program = builder.build(SLIME_GLSL);
-	if(builder.error())
-		ERROR_FROM_MAIN(builder.error_message());
-	auto postprocess_program = builder.build(POSTPROCESS_GLSL);
 	if(builder.error())
 		ERROR_FROM_MAIN(builder.error_message());
 	imgui_context _imgui{window};
@@ -150,10 +82,12 @@ int main() {
 	std::mt19937 twister;
 	std::uniform_real_distribution<float> dist01;
 	std::uniform_real_distribution<float> angle_dist{0, 2 * 3.1415926535f};
+	std::uniform_int_distribution<int> species_dist{0, slime::manager::species_count - 1};
 	for(auto & agent : agents) {
 		agent.x = dist01(twister);
 		agent.y = dist01(twister);
-		agent.angle = angle_dist(twister);
+		agent.angle_radians = angle_dist(twister);
+		agent.species = species_dist(twister);
 	}
 	GLuint vao; glGenVertexArrays(1, &vao);
 	GLuint buffers[3]; auto & [vbo, ebo, ssbo] = buffers; glGenBuffers(3, buffers);
@@ -167,45 +101,31 @@ int main() {
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 	glNamedBufferData(ssbo, sizeof(agents), agents, GL_DYNAMIC_COPY); // TODO rethink usage
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
-	auto [manager, width, height] = framebuffer.create_texture_manager();
-	manager.clear();
-	manager.bind_to_image_unit(0, shader_image_access::read_write);
-	manager.bind_to_texture_unit(0);
-	double last_time{};
+	auto manager = slime::make_manager();
+	set_colors_to_default(manager);
+	bool show_settings{};
 	while(!glfwWindowShouldClose(window)) {
-		auto time = glfwGetTime();
-		auto delta_time = time - last_time;
 		glClear(GL_COLOR_BUFFER_BIT);
-		framebuffer.reset_and_call_if_changed(
-			[&](GLsizei new_width, GLsizei new_height) {
-				width = new_width;
-				height = new_height;
-				manager.reset(width, height);
-				manager.clear();
-				manager.bind_to_image_unit(0, shader_image_access::read_write);
-				manager.bind_to_texture_unit(0);
+		if(framebuffer_changed.test(std::memory_order_acquire)) {
+			framebuffer_changed.clear(std::memory_order_relaxed);
+			if(manager.resize(width, height))
 				glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);
-			}
-		);
-		slime_program.use_program();
-		glUniform1d(0, time);
-		glUniform1d(1, delta_time);
-		glUniform1f(2, move_speed);
-		glUniform1f(3, turn_speed);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		glDispatchCompute(sizeof(agents) / sizeof(*agents), 1, 1);
-		postprocess_program.use_program();
-		glUniform1d(0, delta_time);
-		glUniform1f(1, decay_rate);
-		glUniform1f(2, diffuse_rate);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		glDispatchCompute(width / 32 + 1, height / 32 + 1, 1);
+		}
+		manager.compute(sizeof(agents) / sizeof(*agents));
 		render_program.use_program();
-		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT); // compute result
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
-		draw_imgui();
+		imgui_new_frame();
+		if(ImGui::IsKeyPressed(ImGuiKey_S, false))
+			show_settings = true;
+		if(show_settings) {
+			if(!manager.draw_settings_window())
+				show_settings = false;
+			imgui_render();
+		} else {
+			ImGui::EndFrame();
+		}
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-		last_time = time;
 	}
 }
