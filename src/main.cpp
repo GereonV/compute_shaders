@@ -55,6 +55,9 @@ int main() {
 	if(!window)
 		ERROR_FROM_MAIN("glfwCreateWindow() failed\n");
 	// glfwSwapInterval(0);
+	int width, height;
+	glfwGetFramebufferSize(window, &width, &height);
+	framebuffer.store({width, height}, std::memory_order_relaxed);
 	glfwSetFramebufferSizeCallback(window, [](GLFWwindow *, int width, int height) {
 		framebuffer.store({width, height}, std::memory_order_relaxed);
 		glViewport(0, 0, width, height);
@@ -93,12 +96,10 @@ int main() {
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 	glNamedBufferData(ssbo, sizeof(agents), agents, GL_DYNAMIC_COPY); // TODO rethink usage
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
-	auto manager = slime::make_manager(num_agents / 10);
+	slime::manager manager{num_agents / 10, width, height};
 	set_colors_to_default(manager);
 	bool show_settings{};
 	while(!glfwWindowShouldClose(window)) {
-		glClear(GL_COLOR_BUFFER_BIT);
-		auto [width, height] = framebuffer.load(std::memory_order_relaxed);
 		auto manual_reset = ImGui::IsKeyPressed(ImGuiKey_R, false);
 		for(unsigned char i{1}; i <= 4; ++i) {
 			if(!ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_0 + i), false))
@@ -114,6 +115,7 @@ int main() {
 			slime::randomly_setup(agents, num_agents, num_species, twister);
 			manual_reset = true;
 		}
+		auto [width, height] = framebuffer.load(std::memory_order_relaxed);
 		if(manager.resize(width, height) || manual_reset)
 			glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);
 		if(manual_reset)
@@ -126,7 +128,7 @@ int main() {
 		if(ImGui::IsKeyPressed(ImGuiKey_S, false))
 			show_settings = true;
 		if(show_settings) {
-			if(!manager.draw_settings_window(num_agents))
+			if(!manager.draw_settings_window(num_agents, num_species))
 				show_settings = false;
 			imgui_render();
 		} else {

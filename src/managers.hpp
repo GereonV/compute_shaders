@@ -53,7 +53,7 @@ namespace slime {
 		// returns whether size changed
 		[[nodiscard]] bool resize(GLsizei width, GLsizei height) noexcept;
 		// returns false when it has been closed
-		[[nodiscard]] bool draw_settings_window(GLuint max_num_agents) noexcept;
+		[[nodiscard]] bool draw_settings_window(GLuint max_num_agents, unsigned char num_species) noexcept;
 		[[nodiscard]] species_array       & species()       noexcept;
 		[[nodiscard]] species_array const & species() const noexcept;
 		void num_agents(GLuint num_agents) noexcept;
@@ -72,8 +72,6 @@ namespace slime {
 		texture_manager _trail_manager, _colored_manager;
 	};
 
-	[[nodiscard]] manager make_manager(GLuint num_agents, GLFWwindow * window = glfwGetCurrentContext()) noexcept;
-	[[nodiscard]] bool resize(manager & manager, GLFWwindow * window = glfwGetCurrentContext()) noexcept;
 	void set_colors_to_default(manager & manager) noexcept;
 	void randomly_setup(agent * agents, GLuint num_agents, unsigned char num_species, std::mt19937 & twister) noexcept;
 	void randomly_setup_circle(agent * agents, GLuint num_agents, unsigned char num_species, std::mt19937 & twister) noexcept;

@@ -38,14 +38,14 @@ inline void draw_species(slime::species_settings & species) noexcept {
 	draw_float("Sensor Distance", species.sensor_distance, 0.05f);
 }
 
-bool slime::manager::draw_settings_window(GLuint max_num_agents) noexcept {
+bool slime::manager::draw_settings_window(GLuint max_num_agents, unsigned char num_species) noexcept {
 	auto open = true;
 	if(ImGui::Begin("Settings", &open)) {
 		ImGui::Text("General");
 		draw_uint("Number of Agents", _num_agents, 100, max_num_agents);
 		draw_positive_float("Decay Rate", _decay_rate, 0.01f);
 		draw_positive_float("Diffuse Rate", _diffuse_rate, 0.05f);
-		for(unsigned char i{}; i < 4; ++i) {
+		for(unsigned char i{}; i < num_species; ++i) {
 			ImGui::Separator();
 			draw_species_text(i);
 			ImGui::PushID(i);
@@ -63,7 +63,6 @@ inline void reset_texture_managers(texture_manager & trail, texture_manager & co
 	colored.bind_to_image_unit(1, shader_image_access::write_only);
 	colored.bind_to_texture_unit(0);
 }
-
 
 static shader_program_builder simulation_builder, postprocess_builder; // inline?
 
@@ -160,18 +159,6 @@ void slime::manager::diffuse_rate(float diffuse_rate) noexcept {
 
 float slime::manager::diffuse_rate() const noexcept {
 	return _diffuse_rate;
-}
-
-slime::manager slime::make_manager(GLuint num_agents, GLFWwindow * window) noexcept {
-	int width, height;
-	glfwGetFramebufferSize(window, &width, &height);
-	return {num_agents, width, height};
-}
-
-bool slime::resize(slime::manager & manager, GLFWwindow * window) noexcept {
-	int width, height;
-	glfwGetFramebufferSize(window, &width, &height);
-	return manager.resize(width, height);
 }
 
 void slime::set_colors_to_default(manager & manager) noexcept {
