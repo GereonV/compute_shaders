@@ -1,4 +1,5 @@
 #include "managers.hpp"
+#include <cmath>
 #include <iostream>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -32,7 +33,7 @@ inline void draw_species_text(unsigned char index) noexcept {
 inline void draw_species(slime::species_settings & species) noexcept {
 	ImGui::ColorEdit3("Color", species.color, ImGuiColorEditFlags_NoDragDrop);
 	draw_float("Move Speed", species.move_speed, 0.5f);
-	draw_symmetric_float("Turn Speed", species.turn_radians_per_second, std::numbers::pi_v<float> / 2);
+	draw_symmetric_float("Turn Speed", species.turn_radians_per_second, std::numbers::pi_v<float> / 2.0f);
 	draw_float("Sensor Spacing", species.sensor_spacing_radians, std::numbers::pi_v<float> / 2.0f);
 	draw_float("Sensor Distance", species.sensor_distance, 0.05f);
 }
@@ -125,6 +126,10 @@ void slime::manager::compute() const noexcept {
 	glDispatchCompute(_width / 32 + 1, _height / 32 + 1, 1);
 }
 
+void slime::manager::clear() const noexcept {
+	_trail_manager.clear();
+}
+
 slime::manager::species_array & slime::manager::species() noexcept {
 	return _species;
 }
@@ -173,4 +178,41 @@ void slime::set_colors_to_default(manager & manager) noexcept {
 	manager.species()[0].color[0] = 1.0f;
 	manager.species()[1].color[1] = 1.0f;
 	manager.species()[2].color[2] = 1.0f;
+}
+
+inline std::uniform_real_distribution<float> dist01;
+inline std::uniform_real_distribution<float> dist_abs1{-1.0f, 1.0f};
+inline std::uniform_real_distribution<float> angle_dist{0.0f, 2.0f * std::numbers::pi_v<float>};
+
+void slime::randomly_setup(agent * agents, GLuint num_agents, unsigned char num_species, std::mt19937 & twister) noexcept {
+	std::uniform_int_distribution<int> species_dist{0, num_species - 1};
+	for(GLuint i{}; i < num_agents; ++i) {
+		auto & agent = agents[i];
+		agent.x = dist01(twister);
+		agent.y = dist01(twister);
+		agent.angle_radians = angle_dist(twister);
+		agent.species = species_dist(twister);
+	}
+}
+
+void slime::randomly_setup_circle(agent * agents, GLuint num_agents, unsigned char num_species, std::mt19937 & twister) noexcept {
+	std::uniform_int_distribution<int> species_dist{0, num_species - 1};
+	for(GLuint i{}; i < num_agents; ++i) {
+		auto & agent = agents[i];
+		float x, y;
+		do {
+			x = dist_abs1(twister);
+			y = dist_abs1(twister);
+		} while(x * x + y * y > 1);
+		agent.x = x / 2.0f + 0.5f;
+		agent.y = y / 2.0f + 0.5f;
+		agent.angle_radians = std::atan2(-y, -x);
+		agent.species = species_dist(twister);
+	}
+}
+
+void slime::randomize_species(agent * agents, GLuint num_agents, unsigned char num_species, std::mt19937 & twister) noexcept {
+	std::uniform_int_distribution<int> species_dist{0, num_species - 1};
+	for(GLuint i{}; i < num_agents; ++i)
+		agents[i].species = species_dist(twister);
 }

@@ -45,6 +45,7 @@ inline void imgui_render() noexcept {
 struct size { int width, height; };
 static std::atomic<size> framebuffer;
 static slime::agent agents[1'000'000];
+inline constexpr GLuint num_agents{sizeof(agents) / sizeof(*agents)};
 
 int main() {
 	if(!glfwInit())
@@ -78,15 +79,8 @@ int main() {
 		0, 3, 2, // top left
 	};
 	std::mt19937 twister;
-	std::uniform_real_distribution<float> dist01;
-	std::uniform_real_distribution<float> angle_dist{0, 2 * 3.1415926535f};
-	std::uniform_int_distribution<int> species_dist{0, 2};
-	for(auto & agent : agents) {
-		agent.x = dist01(twister);
-		agent.y = dist01(twister);
-		agent.angle_radians = angle_dist(twister);
-		agent.species = species_dist(twister);
-	}
+	unsigned char num_species{1};
+	slime::randomly_setup_circle(agents, num_agents, num_species, twister);
 	GLuint vao; glGenVertexArrays(1, &vao);
 	GLuint buffers[3]; auto & [vbo, ebo, ssbo] = buffers; glGenBuffers(3, buffers);
 	glBindVertexArray(vao);
@@ -99,14 +93,31 @@ int main() {
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 	glNamedBufferData(ssbo, sizeof(agents), agents, GL_DYNAMIC_COPY); // TODO rethink usage
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
-	auto manager = slime::make_manager(sizeof(agents) / sizeof(*agents) / 10);
+	auto manager = slime::make_manager(num_agents / 10);
 	set_colors_to_default(manager);
 	bool show_settings{};
 	while(!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
 		auto [width, height] = framebuffer.load(std::memory_order_relaxed);
-		if(manager.resize(width, height))
-			; // glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);
+		auto manual_reset = ImGui::IsKeyPressed(ImGuiKey_R, false);
+		for(unsigned char i{1}; i <= 4; ++i) {
+			if(!ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_0 + i), false))
+				continue;
+			slime::randomize_species(agents, num_agents, num_species = i, twister);
+			manual_reset = true;
+			break;
+		}
+		if(ImGui::IsKeyPressed(ImGuiKey_C, false)) {
+			slime::randomly_setup_circle(agents, num_agents, num_species, twister);
+			manual_reset = true;
+		} else if(ImGui::IsKeyPressed(ImGuiKey_V, false)) {
+			slime::randomly_setup(agents, num_agents, num_species, twister);
+			manual_reset = true;
+		}
+		if(manager.resize(width, height) || manual_reset)
+			glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);
+		if(manual_reset)
+			manager.clear();
 		manager.compute();
 		render_program.use_program();
 		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -115,7 +126,7 @@ int main() {
 		if(ImGui::IsKeyPressed(ImGuiKey_S, false))
 			show_settings = true;
 		if(show_settings) {
-			if(!manager.draw_settings_window(sizeof(agents) / sizeof(*agents)))
+			if(!manager.draw_settings_window(num_agents))
 				show_settings = false;
 			imgui_render();
 		} else {

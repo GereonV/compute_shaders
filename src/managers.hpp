@@ -2,6 +2,7 @@
 #define CS_MANAGERS_HPP
 
 #include <numbers>
+#include <random>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "shader.hpp"
@@ -37,7 +38,7 @@ namespace slime {
 	struct species_settings {
 		float color[4]{}; // only first 3 used
 		float move_speed{0.15f};
-		float turn_radians_per_second{std::numbers::pi_v<float> / 2};
+		float turn_radians_per_second{std::numbers::pi_v<float> / 3.0f};
 		float sensor_spacing_radians{std::numbers::pi_v<float> / 6.0f};
 		float sensor_distance{0.015f};
 	};
@@ -48,6 +49,7 @@ namespace slime {
 		manager(GLuint num_agents, GLsizei width, GLsizei height) noexcept;
 		manager(manager const &) = delete;
 		void compute() const noexcept;
+		void clear() const noexcept;
 		// returns whether size changed
 		[[nodiscard]] bool resize(GLsizei width, GLsizei height) noexcept;
 		// returns false when it has been closed
@@ -73,6 +75,9 @@ namespace slime {
 	[[nodiscard]] manager make_manager(GLuint num_agents, GLFWwindow * window = glfwGetCurrentContext()) noexcept;
 	[[nodiscard]] bool resize(manager & manager, GLFWwindow * window = glfwGetCurrentContext()) noexcept;
 	void set_colors_to_default(manager & manager) noexcept;
+	void randomly_setup(agent * agents, GLuint num_agents, unsigned char num_species, std::mt19937 & twister) noexcept;
+	void randomly_setup_circle(agent * agents, GLuint num_agents, unsigned char num_species, std::mt19937 & twister) noexcept;
+	void randomize_species(agent * agents, GLuint num_agents, unsigned char num_species, std::mt19937 & twister) noexcept;
 }
 
 #endif // CS_MANAGERS_HPP
