@@ -80,10 +80,13 @@ slime::manager::manager(GLuint num_agents, GLsizei width, GLsizei height) noexce
 #ifdef _DEBUG
 	std::cerr << simulation_builder.error_message();
 	std::cerr << postprocess_builder.error_message();
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wterminate"
 	if(simulation_builder.error())
 		throw simulation_builder.error_message();
 	if(postprocess_builder.error())
 		throw postprocess_builder.error_message();
+#pragma GCC diagnostic pop
 #endif // _DEBUG
 	reset_texture_managers(_trail_manager, _colored_manager);
 }
@@ -96,6 +99,7 @@ bool slime::manager::resize(GLsizei width, GLsizei height) noexcept {
 	_trail_manager.reset(width, height);
 	_colored_manager.reset(width, height);
 	reset_texture_managers(_trail_manager, _colored_manager);
+	_last_time = static_cast<float>(glfwGetTime());
 	return true;
 }
 
