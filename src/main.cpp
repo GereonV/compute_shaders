@@ -42,8 +42,8 @@ inline void imgui_render() noexcept {
 }
 
 // inline?
-static std::atomic_flag framebuffer_changed;
-static int width, height;
+struct size { int width, height; };
+static std::atomic<size> framebuffer;
 static slime::agent agents[1'000'000];
 
 int main() {
@@ -55,9 +55,7 @@ int main() {
 		ERROR_FROM_MAIN("glfwCreateWindow() failed\n");
 	// glfwSwapInterval(0);
 	glfwSetFramebufferSizeCallback(window, [](GLFWwindow *, int width, int height) {
-		::width = width;
-		::height = height;
-		framebuffer_changed.test_and_set(std::memory_order_release);
+		framebuffer.store({width, height}, std::memory_order_relaxed);
 		glViewport(0, 0, width, height);
 	});
 	glfwMakeContextCurrent(window);
@@ -106,11 +104,9 @@ int main() {
 	bool show_settings{};
 	while(!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
-		if(framebuffer_changed.test(std::memory_order_acquire)) {
-			framebuffer_changed.clear(std::memory_order_relaxed);
-			if(manager.resize(width, height))
-				glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);
-		}
+		auto [width, height] = framebuffer.load(std::memory_order_relaxed);
+		if(manager.resize(width, height))
+			; // glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);
 		manager.compute();
 		render_program.use_program();
 		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
