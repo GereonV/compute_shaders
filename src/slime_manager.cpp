@@ -106,7 +106,7 @@ void slime::manager::compute(GLuint num_agents) const noexcept {
 	glUniform1f(1, _decay_rate);
 	glUniform1f(2, _diffuse_rate);
 	for(GLint location{3}; auto const & species : _species)
-		glUniform3f(location++, species.color[0], species.color[1], species.color[2]);
+		glUniform3fv(location++, 1, species.color);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	glDispatchCompute(_width / 32 + 1, _height / 32 + 1, 1);
 }
