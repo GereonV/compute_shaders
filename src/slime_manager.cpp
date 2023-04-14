@@ -48,8 +48,7 @@ inline void reset_texture_managers(texture_manager & trail, texture_manager & co
 	trail.clear();
 	trail.bind_to_image_unit(0, shader_image_access::read_write);
 	colored.bind_to_image_unit(1, shader_image_access::write_only);
-	// colored.bind_to_texture_unit(0); TODO
-	trail.bind_to_texture_unit(0);
+	colored.bind_to_texture_unit(0);
 }
 
 

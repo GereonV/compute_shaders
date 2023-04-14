@@ -32,7 +32,6 @@ void main() {
 	vec4 diffused = mix(original, blurred, diffuseRate * float(deltaTime));
 	vec4 decayed = max(diffused - decayRate * float(deltaTime), 0);
 	imageStore(image, pos, decayed);
-	// TODO color
 	vec3 colored = vec3(0);
 	for(uint species = 0; species < 4; ++species)
 		colored += dot(speciesMask(species), decayed) * species_colors[species];
