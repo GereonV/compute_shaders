@@ -4,12 +4,23 @@
 #include <imgui.h>
 #include "shadersrc.hpp"
 
-inline bool uniform_float(char const * label, float & value, float max) noexcept {
+inline bool draw_uint(char const * label, GLuint & value, unsigned int step, int max) noexcept {
+	int x = static_cast<int>(value);
+	auto r = ImGui::DragInt(label, &x, static_cast<float>(step), 0, max, nullptr, ImGuiSliderFlags_AlwaysClamp);
+	value = x;
+	return r;
+}
+
+inline bool draw_float(char const * label, float & value, float max) noexcept {
 	return ImGui::DragFloat(label, &value, max / 100.0f, 0.0f, max, nullptr, ImGuiSliderFlags_AlwaysClamp);
 }
 
-inline bool uniform_positive_float(char const * label, float & value, float step) noexcept {
+inline bool draw_positive_float(char const * label, float & value, float step) noexcept {
 	return ImGui::DragFloat(label, &value, step, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
+}
+
+inline bool draw_symmetric_float(char const * label, float & value, float abs) noexcept {
+	return ImGui::DragFloat(label, &value, abs / 50.0f, -abs, abs, nullptr, ImGuiSliderFlags_AlwaysClamp);
 }
 
 inline void draw_species_text(unsigned char index) noexcept {
@@ -20,19 +31,20 @@ inline void draw_species_text(unsigned char index) noexcept {
 
 inline void draw_species(slime::species_settings & species) noexcept {
 	ImGui::ColorEdit3("Color", species.color, ImGuiColorEditFlags_NoDragDrop);
-	uniform_float("Move Speed", species.move_speed, 0.5f);
-	uniform_float("Turn Speed", species.turn_radians_per_second, std::numbers::pi_v<float> / 2.0f);
-	uniform_float("Sensor Spacing", species.sensor_spacing_radians, std::numbers::pi_v<float> / 2.0f);
-	uniform_float("Sensor Distance", species.sensor_distance, 0.05f);
+	draw_float("Move Speed", species.move_speed, 0.5f);
+	draw_symmetric_float("Turn Speed", species.turn_radians_per_second, std::numbers::pi_v<float> / 2);
+	draw_float("Sensor Spacing", species.sensor_spacing_radians, std::numbers::pi_v<float> / 2.0f);
+	draw_float("Sensor Distance", species.sensor_distance, 0.05f);
 }
 
-bool slime::manager::draw_settings_window() noexcept {
+bool slime::manager::draw_settings_window(GLuint max_num_agents) noexcept {
 	auto open = true;
 	if(ImGui::Begin("Settings", &open)) {
 		ImGui::Text("General");
-		uniform_positive_float("Decay Rate", _decay_rate, 0.01f);
-		uniform_positive_float("Diffuse Rate", _diffuse_rate, 0.05f);
-		for(unsigned char i{}; i < species_count; ++i) {
+		draw_uint("Number of Agents", _num_agents, 100, max_num_agents);
+		draw_positive_float("Decay Rate", _decay_rate, 0.01f);
+		draw_positive_float("Diffuse Rate", _diffuse_rate, 0.05f);
+		for(unsigned char i{}; i < 4; ++i) {
 			ImGui::Separator();
 			draw_species_text(i);
 			ImGui::PushID(i);
@@ -54,8 +66,9 @@ inline void reset_texture_managers(texture_manager & trail, texture_manager & co
 
 static shader_program_builder simulation_builder, postprocess_builder; // inline?
 
-slime::manager::manager(GLsizei width, GLsizei height) noexcept
-	: _decay_rate{0.1f},
+slime::manager::manager(GLuint num_agents, GLsizei width, GLsizei height) noexcept
+	: _num_agents{num_agents},
+	  _decay_rate{0.1f},
 	  _diffuse_rate{3.0f},
 	  _last_time{static_cast<float>(glfwGetTime())},
 	  _width{width},
@@ -86,21 +99,22 @@ bool slime::manager::resize(GLsizei width, GLsizei height) noexcept {
 	return true;
 }
 
-void slime::manager::compute(GLuint num_agents) const noexcept {
+void slime::manager::compute() const noexcept {
 	auto time = static_cast<float>(glfwGetTime());
 	auto delta_time = time - _last_time;
 	_last_time = time;
 	_simulation_shader.use_program();
 	glUniform1f(0, time);
 	glUniform1f(1, delta_time);
-	for(GLint location{2}; auto const & species : _species) {
+	glUniform1ui(2, _num_agents);
+	for(GLint location{3}; auto const & species : _species) {
 		glUniform1f(location++, species.move_speed);
 		glUniform1f(location++, species.turn_radians_per_second);
 		glUniform1f(location++, species.sensor_spacing_radians);
 		glUniform1f(location++, species.sensor_distance);
 	}
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-	glDispatchCompute(num_agents, 1, 1);
+	glDispatchCompute(_num_agents, 1, 1);
 	_postprocess_shader.use_program();
 	glUniform1f(0, delta_time);
 	glUniform1f(1, _decay_rate);
@@ -119,6 +133,14 @@ slime::manager::species_array const & slime::manager::species() const noexcept {
 	return _species;
 }
 
+void slime::manager::num_agents(GLuint num_agents) noexcept {
+	_num_agents = static_cast<int>(num_agents);
+}
+
+GLuint slime::manager::num_agents() const noexcept {
+	return _num_agents;
+}
+
 void slime::manager::decay_rate(float decay_rate) noexcept {
 	_decay_rate = decay_rate;
 }
@@ -135,10 +157,10 @@ float slime::manager::diffuse_rate() const noexcept {
 	return _diffuse_rate;
 }
 
-slime::manager slime::make_manager(GLFWwindow * window) noexcept {
+slime::manager slime::make_manager(GLuint num_agents, GLFWwindow * window) noexcept {
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
-	return {width, height};
+	return {num_agents, width, height};
 }
 
 bool slime::resize(slime::manager & manager, GLFWwindow * window) noexcept {

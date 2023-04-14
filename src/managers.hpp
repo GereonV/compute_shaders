@@ -44,23 +44,25 @@ namespace slime {
 
 	class manager {
 	public:
-		static constexpr unsigned char species_count{3}; // ∈ [0, 4]
-		using species_array = species_settings[species_count];
-		manager(GLsizei width, GLsizei height) noexcept;
+		using species_array = species_settings[4];
+		manager(GLuint num_agents, GLsizei width, GLsizei height) noexcept;
 		manager(manager const &) = delete;
-		void compute(GLuint num_agents) const noexcept;
+		void compute() const noexcept;
 		// returns whether size changed
 		[[nodiscard]] bool resize(GLsizei width, GLsizei height) noexcept;
 		// returns false when it has been closed
-		[[nodiscard]] bool draw_settings_window() noexcept;
+		[[nodiscard]] bool draw_settings_window(GLuint max_num_agents) noexcept;
 		[[nodiscard]] species_array       & species()       noexcept;
 		[[nodiscard]] species_array const & species() const noexcept;
+		void num_agents(GLuint num_agents) noexcept;
+		[[nodiscard]] GLuint num_agents() const noexcept;
 		void decay_rate(float decay_rate) noexcept;
 		[[nodiscard]] float decay_rate() const noexcept;
 		void diffuse_rate(float diffuse_rate) noexcept;
 		[[nodiscard]] float diffuse_rate() const noexcept;
 	private:
 		species_array _species;
+		GLuint _num_agents;
 		float _decay_rate, _diffuse_rate;
 		mutable float _last_time;
 		GLsizei _width, _height;
@@ -68,7 +70,7 @@ namespace slime {
 		texture_manager _trail_manager, _colored_manager;
 	};
 
-	[[nodiscard]] manager make_manager(GLFWwindow * window = glfwGetCurrentContext()) noexcept;
+	[[nodiscard]] manager make_manager(GLuint num_agents, GLFWwindow * window = glfwGetCurrentContext()) noexcept;
 	[[nodiscard]] bool resize(manager & manager, GLFWwindow * window = glfwGetCurrentContext()) noexcept;
 	void set_colors_to_default(manager & manager) noexcept;
 }

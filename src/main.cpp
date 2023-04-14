@@ -44,7 +44,7 @@ inline void imgui_render() noexcept {
 // inline?
 static std::atomic_flag framebuffer_changed;
 static int width, height;
-static slime::agent agents[10000];
+static slime::agent agents[1'000'000];
 
 int main() {
 	if(!glfwInit())
@@ -82,7 +82,7 @@ int main() {
 	std::mt19937 twister;
 	std::uniform_real_distribution<float> dist01;
 	std::uniform_real_distribution<float> angle_dist{0, 2 * 3.1415926535f};
-	std::uniform_int_distribution<int> species_dist{0, slime::manager::species_count - 1};
+	std::uniform_int_distribution<int> species_dist{0, 2};
 	for(auto & agent : agents) {
 		agent.x = dist01(twister);
 		agent.y = dist01(twister);
@@ -101,7 +101,7 @@ int main() {
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 	glNamedBufferData(ssbo, sizeof(agents), agents, GL_DYNAMIC_COPY); // TODO rethink usage
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
-	auto manager = slime::make_manager();
+	auto manager = slime::make_manager(sizeof(agents) / sizeof(*agents) / 10);
 	set_colors_to_default(manager);
 	bool show_settings{};
 	while(!glfwWindowShouldClose(window)) {
@@ -111,7 +111,7 @@ int main() {
 			if(manager.resize(width, height))
 				glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);
 		}
-		manager.compute(sizeof(agents) / sizeof(*agents));
+		manager.compute();
 		render_program.use_program();
 		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
@@ -119,7 +119,7 @@ int main() {
 		if(ImGui::IsKeyPressed(ImGuiKey_S, false))
 			show_settings = true;
 		if(show_settings) {
-			if(!manager.draw_settings_window())
+			if(!manager.draw_settings_window(sizeof(agents) / sizeof(*agents)))
 				show_settings = false;
 			imgui_render();
 		} else {
