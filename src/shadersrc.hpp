@@ -124,35 +124,33 @@
 "	}\n" \
 "}\n" \
 "\n" \
-"float sense(vec2 pos, ivec2 size, ivec4 speciesMask) {\n" \
-"	ivec2 imageCoords = ivec2(pos * size);\n" \
+"float sense(vec2 pos, float angle, float distance, ivec2 size, ivec4 speciesMult) {\n" \
+"	vec2 dir = {cos(angle), sin(angle)};\n" \
+"	vec2 sensorPos = pos + dir * distance;\n" \
+"	ivec2 imageCoords = ivec2(sensorPos * size);\n" \
 "	float sensed = 0;\n" \
 "	for(int x = -1; x <= 1; ++x)\n" \
 "		for(int y = -1; y <= 1; ++y)\n" \
-"			sensed += dot(imageLoad(image, imageCoords + ivec2(x, y)), speciesMask);\n" \
+"			sensed += dot(imageLoad(image, imageCoords + ivec2(x, y)), speciesMult);\n" \
 "	return sensed;\n" \
 "}\n" \
 "\n" \
-"void move(inout Agent agent, Species species, ivec2 size, ivec4 speciesMask) {\n" \
+"void move(inout Agent agent, Species species, ivec2 size, ivec4 speciesMask, inout uint state) {\n" \
+"	vec2 pos = agent.pos;\n" \
 "	float angle = agent.angleRadians;\n" \
 "	float spacing = species.sensorSpacingRadians;\n" \
-"	vec2 dir = {cos(angle), sin(angle)};\n" \
-"	vec2 dirLeft = {cos(angle + spacing), sin(angle + spacing)};\n" \
-"	vec2 dirRight = {cos(angle - spacing), sin(angle - spacing)};\n" \
-"	vec2 pos = agent.pos;\n" \
 "	float distance = species.sensorDistance;\n" \
-"	speciesMask = speciesMask * 2 - 1;\n" \
-"	float sensed = sense(pos + dir * distance, size, speciesMask);\n" \
-"	float sensedLeft = sense(pos + dirLeft * distance, size, speciesMask);\n" \
-"	float sensedRight = sense(pos + dirRight * distance, size, speciesMask);\n" \
+"	ivec4 speciesMult = speciesMask * 2 - 1;\n" \
+"	float sensed = sense(pos, angle, distance, size, speciesMult);\n" \
+"	float sensedLeft = sense(pos, angle + spacing, distance, size, speciesMult);\n" \
+"	float sensedRight = sense(pos, angle - spacing, distance, size, speciesMult);\n" \
 "	float turnAmount = species.turnRadiansPerSecond * deltaTime;\n" \
-"	if(sensedLeft > sensed && sensedLeft > sensedRight) {\n" \
+"	if(sensedLeft > sensed && sensedLeft > sensedRight)\n" \
 "		agent.angleRadians += turnAmount;\n" \
-"		dir = dirLeft;\n" \
-"	} else if(sensedRight > sensed && sensedRight > sensedLeft) {\n" \
+"	else if(sensedRight > sensed && sensedRight > sensedLeft)\n" \
 "		agent.angleRadians -= turnAmount;\n" \
-"		dir = dirRight;\n" \
-"	}\n" \
+"	agent.angleRadians += (2 * random01(state) - 1) * PI / 2 * deltaTime;\n" \
+"	vec2 dir = {cos(agent.angleRadians), sin(agent.angleRadians)};\n" \
 "	float moveDistance = species.moveSpeed * deltaTime;\n" \
 "	agent.pos += dir * moveDistance;\n" \
 "}\n" \
@@ -165,10 +163,10 @@
 "	Species species = species[agent.species];\n" \
 "	ivec2 size = imageSize(image);\n" \
 "	ivec4 speciesMask = speciesMask(agent.species);\n" \
-"	move(agent, species, size, speciesMask);\n" \
+"	uint state = randomState(index);\n" \
+"	move(agent, species, size, speciesMask, state);\n" \
 "	if(agent.pos.x < 0 || agent.pos.y < 0 || agent.pos.x > 1 || agent.pos.y > 1) {\n" \
 "		agent.pos = clamp(agent.pos, 0, 1);\n" \
-"		uint state = randomState(index);\n" \
 "		agent.angleRadians = random01(state) * 2 * PI; // new random angle\n" \
 "	}\n" \
 "	agents[index] = agent;\n" \
