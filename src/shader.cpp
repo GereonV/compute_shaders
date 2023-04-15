@@ -6,7 +6,7 @@ enum class shader_type : GLenum {
 	fragment = GL_FRAGMENT_SHADER,
 };
 
-[[nodiscard]] inline GLuint make_shader(shader_type type, char const * source, [[maybe_unused]] char * error_buffer, [[maybe_unused]] GLsizei buffer_size, [[maybe_unused]] GLsizei * length) noexcept {
+[[nodiscard]] static GLuint make_shader(shader_type type, char const * source, [[maybe_unused]] char * error_buffer, [[maybe_unused]] GLsizei buffer_size, [[maybe_unused]] GLsizei * length) noexcept {
 	auto handle = glCreateShader(static_cast<GLenum>(type));
 	glShaderSource(handle, 1, &source, nullptr);
 	glCompileShader(handle);

@@ -30,22 +30,21 @@ struct imgui_context {
 	}
 };
 
-inline void imgui_new_frame() noexcept {
+static void imgui_new_frame() noexcept {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 }
 
-inline void imgui_render() noexcept {
+static void imgui_render() noexcept {
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-// inline?
 struct size { int width, height; };
 static std::atomic<size> framebuffer;
 static slime::agent agents[1'000'000];
-inline constexpr GLuint num_agents{sizeof(agents) / sizeof(*agents)};
+constexpr GLuint num_agents{sizeof(agents) / sizeof(*agents)};
 
 int main() {
 	if(!glfwInit())

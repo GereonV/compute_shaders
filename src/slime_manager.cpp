@@ -5,32 +5,32 @@
 #include <imgui.h>
 #include "shadersrc.hpp"
 
-inline bool draw_uint(char const * label, GLuint & value, unsigned int step, int max) noexcept {
+static bool draw_uint(char const * label, GLuint & value, unsigned int step, int max) noexcept {
 	int x = static_cast<int>(value);
 	auto r = ImGui::DragInt(label, &x, static_cast<float>(step), 0, max, nullptr, ImGuiSliderFlags_AlwaysClamp);
 	value = x;
 	return r;
 }
 
-inline bool draw_float(char const * label, float & value, float max) noexcept {
+static bool draw_float(char const * label, float & value, float max) noexcept {
 	return ImGui::DragFloat(label, &value, max / 100.0f, 0.0f, max, nullptr, ImGuiSliderFlags_AlwaysClamp);
 }
 
-inline bool draw_positive_float(char const * label, float & value, float step) noexcept {
+static bool draw_positive_float(char const * label, float & value, float step) noexcept {
 	return ImGui::DragFloat(label, &value, step, 0.0f, FLT_MAX, nullptr, ImGuiSliderFlags_AlwaysClamp);
 }
 
-inline bool draw_symmetric_float(char const * label, float & value, float abs) noexcept {
+static bool draw_symmetric_float(char const * label, float & value, float abs) noexcept {
 	return ImGui::DragFloat(label, &value, abs / 50.0f, -abs, abs, nullptr, ImGuiSliderFlags_AlwaysClamp);
 }
 
-inline void draw_species_text(unsigned char index) noexcept {
+static void draw_species_text(unsigned char index) noexcept {
 	static constinit char text[]{"Species x:"};
 	text[sizeof(text) - 3] = static_cast<char>(index + '1');
 	ImGui::Text(text);
 }
 
-inline void draw_species(slime::species_settings & species) noexcept {
+static void draw_species(slime::species_settings & species) noexcept {
 	ImGui::ColorEdit3("Color", species.color, ImGuiColorEditFlags_NoDragDrop);
 	draw_float("Move Speed", species.move_speed, 0.5f);
 	draw_symmetric_float("Turn Speed", species.turn_radians_per_second, std::numbers::pi_v<float> / 2.0f);
@@ -57,14 +57,14 @@ bool slime::manager::draw_settings_window(GLuint max_num_agents, unsigned char n
 	return open;
 }
 
-inline void reset_texture_managers(texture_manager & trail, texture_manager & colored) noexcept {
+static void reset_texture_managers(texture_manager & trail, texture_manager & colored) noexcept {
 	trail.clear();
 	trail.bind_to_image_unit(0, shader_image_access::read_write);
 	colored.bind_to_image_unit(1, shader_image_access::write_only);
 	colored.bind_to_texture_unit(0);
 }
 
-static shader_program_builder simulation_builder, postprocess_builder; // inline?
+static shader_program_builder simulation_builder, postprocess_builder;
 
 slime::manager::manager(GLuint num_agents, GLsizei width, GLsizei height) noexcept
 	: _num_agents{num_agents},
@@ -171,9 +171,9 @@ void slime::set_colors_to_default(manager & manager) noexcept {
 	manager.species()[2].color[2] = 1.0f;
 }
 
-inline std::uniform_real_distribution<float> dist01;
-inline std::uniform_real_distribution<float> dist_abs1{-1.0f, 1.0f};
-inline std::uniform_real_distribution<float> angle_dist{0.0f, 2.0f * std::numbers::pi_v<float>};
+static std::uniform_real_distribution<float> dist01;
+static std::uniform_real_distribution<float> dist_abs1{-1.0f, 1.0f};
+static std::uniform_real_distribution<float> angle_dist{0.0f, 2.0f * std::numbers::pi_v<float>};
 
 void slime::randomly_setup(agent * agents, GLuint num_agents, unsigned char num_species, std::mt19937 & twister) noexcept {
 	std::uniform_int_distribution<int> species_dist{0, num_species - 1};
