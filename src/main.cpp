@@ -100,12 +100,14 @@ int main() {
 	bool show_settings{};
 	while(!glfwWindowShouldClose(window)) {
 		auto manual_reset = ImGui::IsKeyPressed(ImGuiKey_R, false);
-		for(unsigned char i{1}; i <= 4; ++i) {
-			if(!ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_0 + i), false))
-				continue;
-			slime::randomize_species(agents, num_agents, num_species = i, twister);
-			manual_reset = true;
-			break;
+		if(!ImGui::GetIO().WantCaptureKeyboard) {
+			for(unsigned char i{1}; i <= 4; ++i) {
+				if(!ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_0 + i), false))
+					continue;
+				slime::randomize_species(agents, num_agents, num_species = i, twister);
+				manual_reset = true;
+				break;
+			}
 		}
 		if(ImGui::IsKeyPressed(ImGuiKey_C, false)) {
 			slime::randomly_setup_circle(agents, num_agents, num_species, twister);
