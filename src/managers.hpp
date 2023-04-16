@@ -66,6 +66,7 @@ namespace slime {
 		species_array _species;
 		GLuint _num_agents;
 		float _decay_rate, _diffuse_rate;
+		bool _overlapping;
 		mutable float _last_time;
 		GLsizei _width, _height;
 		shader_program _simulation_shader, _postprocess_shader;

@@ -19,7 +19,8 @@ struct Species {
 layout(location = 0) uniform float time; // as seed
 layout(location = 1) uniform float deltaTime;
 layout(location = 2) uniform uint numAgents;
-layout(location = 3) uniform Species species[4];
+layout(location = 3) uniform uint overlapping;
+layout(location = 4) uniform Species species[4];
 layout(binding = 0, rgba32f) uniform image2D image;
 layout(binding = 0, std430) buffer _block_name {
 	Agent agents[];
@@ -103,5 +104,7 @@ void main() {
 		agent.angleRadians = random01(state) * 2 * PI; // new random angle
 	}
 	agents[index] = agent;
-	imageStore(image, ivec2(agent.pos * size), speciesMask);
+	ivec2 imageCoords = ivec2(agent.pos * size);
+	vec4 prev = overlapping == 1 ? imageLoad(image, imageCoords) : vec4(0);
+	imageStore(image, imageCoords, speciesMask + prev);
 }

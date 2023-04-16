@@ -86,7 +86,8 @@
 "layout(location = 0) uniform float time; // as seed\n" \
 "layout(location = 1) uniform float deltaTime;\n" \
 "layout(location = 2) uniform uint numAgents;\n" \
-"layout(location = 3) uniform Species species[4];\n" \
+"layout(location = 3) uniform uint overlapping;\n" \
+"layout(location = 4) uniform Species species[4];\n" \
 "layout(binding = 0, rgba32f) uniform image2D image;\n" \
 "layout(binding = 0, std430) buffer _block_name {\n" \
 "	Agent agents[];\n" \
@@ -170,7 +171,9 @@
 "		agent.angleRadians = random01(state) * 2 * PI; // new random angle\n" \
 "	}\n" \
 "	agents[index] = agent;\n" \
-"	imageStore(image, ivec2(agent.pos * size), speciesMask);\n" \
+"	ivec2 imageCoords = ivec2(agent.pos * size);\n" \
+"	vec4 prev = overlapping == 1 ? imageLoad(image, imageCoords) : vec4(0);\n" \
+"	imageStore(image, imageCoords, speciesMask + prev);\n" \
 "}\n" \
 ""
 #define VERTEX_GLSL \

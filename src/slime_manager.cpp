@@ -45,6 +45,7 @@ bool slime::manager::draw_settings_window(GLuint max_num_agents, unsigned char n
 		draw_uint("Number of Agents", _num_agents, 100, max_num_agents);
 		draw_positive_float("Decay Rate", _decay_rate, 0.01f);
 		draw_positive_float("Diffuse Rate", _diffuse_rate, 0.05f);
+		ImGui::Checkbox("Overlapping", &_overlapping);
 		for(unsigned char i{}; i < num_species; ++i) {
 			ImGui::Separator();
 			draw_species_text(i);
@@ -70,6 +71,7 @@ slime::manager::manager(GLuint num_agents, GLsizei width, GLsizei height) noexce
 	: _num_agents{num_agents},
 	  _decay_rate{0.1f},
 	  _diffuse_rate{3.0f},
+	  _overlapping{},
 	  _last_time{static_cast<float>(glfwGetTime())},
 	  _width{width},
 	  _height{height},
@@ -111,7 +113,8 @@ void slime::manager::compute() const noexcept {
 	glUniform1f(0, time);
 	glUniform1f(1, delta_time);
 	glUniform1ui(2, _num_agents);
-	for(GLint location{3}; auto const & species : _species) {
+	glUniform1ui(3, _overlapping);
+	for(GLint location{4}; auto const & species : _species) {
 		glUniform1f(location++, species.move_speed);
 		glUniform1f(location++, species.turn_radians_per_second);
 		glUniform1f(location++, species.sensor_spacing_radians);
