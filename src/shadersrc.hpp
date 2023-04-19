@@ -87,11 +87,26 @@
 "layout(location = 1) uniform float deltaTime;\n" \
 "layout(location = 2) uniform uint numAgents;\n" \
 "layout(location = 3) uniform uint overlapping;\n" \
-"layout(location = 4) uniform Species species[4];\n" \
+"layout(location = 4) uniform Species _species[4];\n" \
 "layout(binding = 0, rgba32f) uniform image2D image;\n" \
 "layout(binding = 0, std430) buffer _block_name {\n" \
 "	Agent agents[];\n" \
 "};\n" \
+"\n" \
+"ivec4 _speciesMask(uint species) {\n" \
+"	switch(species) {\n" \
+"	case 0: return ivec4(1, 0, 0, 0);\n" \
+"	case 1: return ivec4(0, 1, 0, 0);\n" \
+"	case 2: return ivec4(0, 0, 1, 0);\n" \
+"	case 3: return ivec4(0, 0, 0, 1);\n" \
+"	}\n" \
+"}\n" \
+"\n" \
+"const uint index = gl_GlobalInvocationID.x;\n" \
+"const ivec2 size = imageSize(image);\n" \
+"const ivec4 speciesMask = _speciesMask(agents[index].species);\n" \
+"const ivec4 speciesMult = speciesMask * 2 - 1;\n" \
+"const Species species = _species[agents[index].species];\n" \
 "\n" \
 "// Bob Jenkins\n" \
 "void hash(inout uint state) {\n" \
@@ -102,11 +117,12 @@
 "	state += (state << 15);\n" \
 "}\n" \
 "\n" \
-"uint randomState(uint index) {\n" \
+"uint randomState() {\n" \
+"	uint idx = index;\n" \
 "	uint micros = uint(time * 1000000);\n" \
-"	hash(index);\n" \
+"	hash(idx);\n" \
 "	hash(micros);\n" \
-"	return index + micros;\n" \
+"	return idx + micros;\n" \
 "}\n" \
 "\n" \
 "float random01(inout uint state) {\n" \
@@ -116,64 +132,48 @@
 "	return random;\n" \
 "}\n" \
 "\n" \
-"ivec4 speciesMask(uint species) {\n" \
-"	switch(species) {\n" \
-"	case 0: return ivec4(1, 0, 0, 0);\n" \
-"	case 1: return ivec4(0, 1, 0, 0);\n" \
-"	case 2: return ivec4(0, 0, 1, 0);\n" \
-"	case 3: return ivec4(0, 0, 0, 1);\n" \
-"	}\n" \
-"}\n" \
-"\n" \
-"float sense(vec2 pos, float angle, float distance, ivec2 size, ivec4 speciesMult) {\n" \
+"float sense(vec2 pos, float angle) {\n" \
 "	vec2 dir = {cos(angle), sin(angle)};\n" \
-"	vec2 sensorPos = pos + dir * distance;\n" \
-"	ivec2 imageCoords = ivec2(sensorPos * size);\n" \
+"	ivec2 sensorPos = ivec2(pos + dir * species.sensorDistance);\n" \
 "	float sensed = 0;\n" \
 "	for(int x = -1; x <= 1; ++x)\n" \
 "		for(int y = -1; y <= 1; ++y)\n" \
-"			sensed += dot(imageLoad(image, imageCoords + ivec2(x, y)), speciesMult);\n" \
+"			sensed += dot(imageLoad(image, sensorPos + ivec2(x, y)), speciesMult);\n" \
 "	return sensed;\n" \
 "}\n" \
 "\n" \
-"void move(inout Agent agent, Species species, ivec2 size, ivec4 speciesMask, inout uint state) {\n" \
+"void move(inout Agent agent, inout uint state) {\n" \
 "	vec2 pos = agent.pos;\n" \
 "	float angle = agent.angleRadians;\n" \
 "	float spacing = species.sensorSpacingRadians;\n" \
-"	float distance = species.sensorDistance;\n" \
-"	ivec4 speciesMult = speciesMask * 2 - 1;\n" \
-"	float sensed = sense(pos, angle, distance, size, speciesMult);\n" \
-"	float sensedLeft = sense(pos, angle + spacing, distance, size, speciesMult);\n" \
-"	float sensedRight = sense(pos, angle - spacing, distance, size, speciesMult);\n" \
+"	float sensed = sense(pos, angle);\n" \
+"	float sensedLeft = sense(pos, angle + spacing);\n" \
+"	float sensedRight = sense(pos, angle - spacing);\n" \
 "	float turnAmount = species.turnRadiansPerSecond * deltaTime;\n" \
 "	if(sensedLeft > sensed && sensedLeft > sensedRight)\n" \
 "		agent.angleRadians += turnAmount;\n" \
 "	else if(sensedRight > sensed && sensedRight > sensedLeft)\n" \
 "		agent.angleRadians -= turnAmount;\n" \
-"	agent.angleRadians += (2 * random01(state) - 1) * PI / 2 * deltaTime;\n" \
+"	// agent.angleRadians += (2 * random01(state) - 1) * PI / 2 * deltaTime;\n" \
 "	vec2 dir = {cos(agent.angleRadians), sin(agent.angleRadians)};\n" \
 "	float moveDistance = species.moveSpeed * deltaTime;\n" \
 "	agent.pos += dir * moveDistance;\n" \
 "}\n" \
 "\n" \
 "void main() {\n" \
-"	uint index = gl_GlobalInvocationID.x;\n" \
 "	if(index >= numAgents)\n" \
 "		return;\n" \
 "	Agent agent = agents[index];\n" \
-"	Species species = species[agent.species];\n" \
-"	ivec2 size = imageSize(image);\n" \
-"	ivec4 speciesMask = speciesMask(agent.species);\n" \
-"	uint state = randomState(index);\n" \
-"	move(agent, species, size, speciesMask, state);\n" \
-"	if(agent.pos.x < 0 || agent.pos.y < 0 || agent.pos.x > 1 || agent.pos.y > 1) {\n" \
-"		agent.pos = clamp(agent.pos, 0, 1);\n" \
+"	uint state = randomState();\n" \
+"	move(agent, state);\n" \
+"	if(agent.pos.x < 0 || agent.pos.y < 0 || agent.pos.x > size.x || agent.pos.y > size.y) {\n" \
+"		agent.pos = clamp(agent.pos, vec2(0), size);\n" \
 "		agent.angleRadians = random01(state) * 2 * PI; // new random angle\n" \
 "	}\n" \
 "	agents[index] = agent;\n" \
-"	ivec2 imageCoords = ivec2(agent.pos * size);\n" \
-"	vec4 prev = overlapping == 1 ? imageLoad(image, imageCoords) : vec4(0);\n" \
-"	imageStore(image, imageCoords, speciesMask + prev);\n" \
+"	ivec2 imageCoords = ivec2(agent.pos);\n" \
+"	vec4 trail = overlapping == 1 ? max(speciesMask + imageLoad(image, imageCoords), 1) : speciesMask;\n" \
+"	imageStore(image, imageCoords, trail);\n" \
 "}\n" \
 ""
 #define VERTEX_GLSL \

@@ -1,4 +1,8 @@
 #include "shader.hpp"
+#ifdef _DEBUG
+#include <exception>
+#include <iostream>
+#endif
 
 enum class shader_type : GLenum {
 	compute = GL_COMPUTE_SHADER,
@@ -6,76 +10,66 @@ enum class shader_type : GLenum {
 	fragment = GL_FRAGMENT_SHADER,
 };
 
-[[nodiscard]] static GLuint make_shader(shader_type type, char const * source, [[maybe_unused]] char * error_buffer, [[maybe_unused]] GLsizei buffer_size, [[maybe_unused]] GLsizei * length) noexcept {
-	auto handle = glCreateShader(static_cast<GLenum>(type));
-	glShaderSource(handle, 1, &source, nullptr);
-	glCompileShader(handle);
+[[nodiscard]] static GLuint make_shader(shader_type type, char const * source) noexcept {
+	auto shader = glCreateShader(static_cast<GLenum>(type));
+	glShaderSource(shader, 1, &source, nullptr);
+	glCompileShader(shader);
 #ifdef _DEBUG
 	GLint success;
-	glGetShaderiv(handle, GL_COMPILE_STATUS, &success);
-	if(success)
-		return handle;
-	glGetShaderInfoLog(handle, buffer_size, length, error_buffer);
-	glDeleteShader(handle);
-	return 0;
-#else // _DEBUG
-	return handle;
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+	if(!success) {
+		char buffer[1024];
+		glGetShaderInfoLog(shader, 1024, nullptr, buffer);
+		std::cerr << buffer;
+		std::terminate();
+	}
+#endif // _DEBUG
+	return shader;
+}
+
+static void link_program(GLuint program) noexcept {
+	glLinkProgram(program);
+#ifdef _DEBUG
+	GLint success;
+	glGetProgramiv(program, GL_LINK_STATUS, &success);
+	if(!success) {
+		char buffer[1024];
+		glGetProgramInfoLog(program, 1024, nullptr, buffer);
+		std::cerr << buffer;
+		std::terminate();
+	}
 #endif // _DEBUG
 }
 
-shader_program::shader_program(char const * compute_source, char * error_buffer, GLsizei buffer_size, GLsizei * length) noexcept {
-	auto shader = make_shader(shader_type::compute, compute_source, error_buffer, buffer_size, length);
-	if(!shader)
-		return;
-	auto handle = glCreateProgram();
-	glAttachShader(handle, shader);
-	glLinkProgram(handle);
-	glDetachShader(handle, shader);
-	glDeleteShader(shader);
-#ifdef _DEBUG
-	GLint success;
-	glGetProgramiv(handle, GL_LINK_STATUS, &success);
-	if(success) {
-		_handle = handle;
-		return;
-	}
-	glGetProgramInfoLog(handle, buffer_size, length, error_buffer);
-	glDeleteProgram(handle);
-#else // _DEBUG
-      _handle = handle;
-#endif // _DEBUG
-}
-
-shader_program::shader_program(char const * vertex_source, char const * fragment_source, char * error_buffer, GLsizei buffer_size, GLsizei * length) noexcept {
-	auto vertex_shader = make_shader(shader_type::vertex, vertex_source, error_buffer, buffer_size, length);
-	if(!vertex_shader)
-		return;
-	auto fragment_shader = make_shader(shader_type::fragment, fragment_source, error_buffer, buffer_size, length);
-	if(!fragment_shader) {
-		glDeleteShader(vertex_shader);
-		return;
-	}
-	auto handle = glCreateProgram();
-	glAttachShader(handle, vertex_shader);
-	glAttachShader(handle, fragment_shader);
-	glLinkProgram(handle);
-	glDetachShader(handle, vertex_shader);
-	glDetachShader(handle, fragment_shader);
+GLuint make_program(char const * vertex_source, char const * fragment_source) noexcept {
+	auto vertex_shader = make_shader(shader_type::vertex, vertex_source);
+	auto fragment_shader = make_shader(shader_type::fragment, fragment_source);
+	auto program = glCreateProgram();
+	glAttachShader(program, vertex_shader);
+	glAttachShader(program, fragment_shader);
+	link_program(program);
+	glDetachShader(program, vertex_shader);
+	glDetachShader(program, fragment_shader);
 	glDeleteShader(vertex_shader);
 	glDeleteShader(fragment_shader);
-#ifdef _DEBUG
-	GLint success;
-	glGetProgramiv(handle, GL_LINK_STATUS, &success);
-	if(success) {
-		_handle = handle;
-		return;
-	}
-	glGetProgramInfoLog(handle, buffer_size, length, error_buffer);
-	glDeleteProgram(handle);
-#else // _DEBUG
-      _handle = handle;
-#endif // _DEBUG
+	return program;
 }
+
+GLuint make_program(char const * compute_source) noexcept {
+	auto shader = make_shader(shader_type::compute, compute_source);
+	auto program = glCreateProgram();
+	glAttachShader(program, shader);
+	link_program(program);
+	glDetachShader(program, shader);
+	glDeleteShader(shader);
+	return program;
+}
+
+shader_program::shader_program(char const * vertex_source, char const * fragment_source) noexcept
+	: _handle{make_program(vertex_source, fragment_source)} {}
+
+shader_program::shader_program(char const * compute_source) noexcept
+	: _handle{make_program(compute_source)} {}
 
 shader_program::~shader_program() {
 	glDeleteProgram(_handle);

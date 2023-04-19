@@ -44,7 +44,6 @@ static void imgui_render() noexcept {
 struct size { int width, height; };
 static std::atomic<size> framebuffer;
 static slime::agent agents[1'000'000];
-constexpr GLuint num_agents{sizeof(agents) / sizeof(*agents)};
 
 int main() {
 	if(!glfwInit())
@@ -64,10 +63,7 @@ int main() {
 	glfwMakeContextCurrent(window);
 	if(!gladLoadGL())
 		ERROR_FROM_MAIN("gladLoadGL() failed\n");
-	shader_program_builder builder;
-	auto render_program = builder.build(VERTEX_GLSL, FRAGMENT_GLSL);
-	if(builder.error())
-		ERROR_FROM_MAIN(builder.error_message());
+	shader_program render_program{VERTEX_GLSL, FRAGMENT_GLSL};
 	imgui_context _imgui{window};
 	ImGui::GetIO().IniFilename = nullptr;
 	constexpr float vertices[]{
@@ -80,9 +76,6 @@ int main() {
 		0, 1, 2, // bottom right
 		0, 3, 2, // top left
 	};
-	std::mt19937 twister;
-	unsigned char num_species{1};
-	slime::randomly_setup_circle(agents, num_agents, num_species, twister);
 	GLuint vao; glGenVertexArrays(1, &vao);
 	GLuint buffers[3]; auto & [vbo, ebo, ssbo] = buffers; glGenBuffers(3, buffers);
 	glBindVertexArray(vao);
@@ -93,48 +86,44 @@ int main() {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 	glNamedBufferData(ebo, sizeof(indices), indices, GL_STATIC_DRAW);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-	glNamedBufferData(ssbo, sizeof(agents), agents, GL_DYNAMIC_COPY); // TODO rethink usage
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
-	slime::manager manager{num_agents / 10, width, height};
-	set_colors_to_default(manager);
-	bool show_settings{};
+	auto setup_function = slime::setup_circle;
+	slime::init(agents, width, height, setup_function);
+	glNamedBufferData(ssbo, sizeof(agents), agents, GL_DYNAMIC_COPY); // TODO rethink usage
+	bool open{};
 	while(!glfwWindowShouldClose(window)) {
-		auto manual_reset = ImGui::IsKeyPressed(ImGuiKey_R, false);
-		if(!ImGui::GetIO().WantCaptureKeyboard) {
-			for(unsigned char i{1}; i <= 4; ++i) {
-				if(!ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_0 + i), false))
-					continue;
-				slime::randomize_species(agents, num_agents, num_species = i, twister);
-				manual_reset = true;
-				break;
-			}
-		}
-		if(ImGui::IsKeyPressed(ImGuiKey_C, false)) {
-			slime::randomly_setup_circle(agents, num_agents, num_species, twister);
-			manual_reset = true;
+		auto sub_data = false, setup_needed = false, reset_needed = false;
+		if(ImGui::IsKeyPressed(ImGuiKey_R, false)) {
+			sub_data = reset_needed = true;
+		} else if(ImGui::IsKeyPressed(ImGuiKey_C, false)) {
+			setup_function = slime::setup_circle;
+			sub_data = setup_needed = reset_needed = true;
 		} else if(ImGui::IsKeyPressed(ImGuiKey_V, false)) {
-			slime::randomly_setup(agents, num_agents, num_species, twister);
-			manual_reset = true;
+			setup_function = slime::setup_uniform;
+			sub_data = setup_needed = reset_needed = true;
 		}
 		auto [width, height] = framebuffer.load(std::memory_order_relaxed);
-		if(manager.resize(width, height) || manual_reset)
+		if(slime::resize_and_setup_if_needed(width, height, setup_function)) {
+			sub_data = true;
+		} else {
+			if(setup_needed)
+				setup_function();
+			if(reset_needed)
+				slime::reset();
+		}
+		if(sub_data)
 			glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);
-		if(manual_reset)
-			manager.clear();
-		manager.compute();
+		slime::compute();
 		render_program.use_program();
 		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
 		imgui_new_frame();
-		if(ImGui::IsKeyPressed(ImGuiKey_S, false))
-			show_settings = true;
-		if(show_settings) {
-			if(!manager.draw_settings_window(num_agents, num_species))
-				show_settings = false;
+		if(slime::draw_settings_window(open))
+			glNamedBufferSubData(ssbo, 0, sizeof(agents), agents);
+		if(open)
 			imgui_render();
-		} else {
+		else
 			ImGui::EndFrame();
-		}
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}

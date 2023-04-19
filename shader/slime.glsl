@@ -67,7 +67,7 @@ float random01(inout uint state) {
 
 float sense(vec2 pos, float angle) {
 	vec2 dir = {cos(angle), sin(angle)};
-	ivec2 sensorPos = ivec2(pos + dir * size * species.sensorDistance);
+	ivec2 sensorPos = ivec2(pos + dir * species.sensorDistance);
 	float sensed = 0;
 	for(int x = -1; x <= 1; ++x)
 		for(int y = -1; y <= 1; ++y)
@@ -87,7 +87,7 @@ void move(inout Agent agent, inout uint state) {
 		agent.angleRadians += turnAmount;
 	else if(sensedRight > sensed && sensedRight > sensedLeft)
 		agent.angleRadians -= turnAmount;
-	// agent.angleRadians += (2 * random01(state) - 1) * PI / 2 * deltaTime;
+	agent.angleRadians += (2 * random01(state) - 1) * PI / 2 * deltaTime;
 	vec2 dir = {cos(agent.angleRadians), sin(agent.angleRadians)};
 	float moveDistance = species.moveSpeed * deltaTime;
 	agent.pos += dir * moveDistance;
