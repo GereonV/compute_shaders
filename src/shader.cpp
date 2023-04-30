@@ -1,7 +1,6 @@
 #include "shader.hpp"
 #ifdef _DEBUG
-#include <exception>
-#include <iostream>
+#include "app.hpp"
 #endif
 
 enum class shader_type : GLenum {
@@ -20,8 +19,7 @@ enum class shader_type : GLenum {
 	if(!success) {
 		char buffer[1024];
 		glGetShaderInfoLog(shader, 1024, nullptr, buffer);
-		std::cerr << buffer;
-		std::terminate();
+		terminate(buffer);
 	}
 #endif // _DEBUG
 	return shader;
@@ -35,8 +33,7 @@ static void link_program(GLuint program) noexcept {
 	if(!success) {
 		char buffer[1024];
 		glGetProgramInfoLog(program, 1024, nullptr, buffer);
-		std::cerr << buffer;
-		std::terminate();
+		terminate(buffer);
 	}
 #endif // _DEBUG
 }

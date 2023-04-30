@@ -154,7 +154,7 @@
 "		agent.angleRadians += turnAmount;\n" \
 "	else if(sensedRight > sensed && sensedRight > sensedLeft)\n" \
 "		agent.angleRadians -= turnAmount;\n" \
-"	// agent.angleRadians += (2 * random01(state) - 1) * PI / 2 * deltaTime;\n" \
+"	agent.angleRadians += (2 * random01(state) - 1) * PI / 2 * deltaTime;\n" \
 "	vec2 dir = {cos(agent.angleRadians), sin(agent.angleRadians)};\n" \
 "	float moveDistance = species.moveSpeed * deltaTime;\n" \
 "	agent.pos += dir * moveDistance;\n" \
