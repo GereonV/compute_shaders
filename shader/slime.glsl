@@ -3,7 +3,7 @@
 layout(local_size_x = 1) in;
 
 struct Agent {
-	vec2 pos; // ∈ [0, 1]
+	vec2 pos;
 	float angleRadians;
 	uint species; // ∈ [0, 3]
 };

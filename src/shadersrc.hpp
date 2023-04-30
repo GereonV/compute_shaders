@@ -70,7 +70,7 @@
 "layout(local_size_x = 1) in;\n" \
 "\n" \
 "struct Agent {\n" \
-"	vec2 pos; // ∈ [0, 1]\n" \
+"	vec2 pos;\n" \
 "	float angleRadians;\n" \
 "	uint species; // ∈ [0, 3]\n" \
 "};\n" \
