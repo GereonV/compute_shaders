@@ -1,11 +1,14 @@
 #include "managers.hpp"
 #include <cmath>
+#include <numbers>
 #include <random>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include "app.hpp"
 #include "shader.hpp"
 #include "shadersrc.hpp"
+
 
 struct agent {
 	float x, y; // pixels
@@ -14,7 +17,7 @@ struct agent {
 };
 
 struct species_t {
-	float color[4]{}; // only first 3 used
+	float color[4]; // only first 3 used
 	float move_speed{0.15f};
 	float turn_radians_per_second{std::numbers::pi_v<float> / 3.0f};
 	float sensor_spacing_radians{std::numbers::pi_v<float> / 6.0f};

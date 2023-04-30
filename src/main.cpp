@@ -1,5 +1,3 @@
-#include <glad/glad.h>
-#include <imgui.h>
 #include "app.hpp"
 #include "managers.hpp"
 
