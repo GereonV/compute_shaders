@@ -1,13 +1,19 @@
 #include "app.hpp"
 #include "managers.hpp"
 
+#if 0
+namespace manager = slime;
+#else
+namespace manager = rt;
+#endif
+
 int main() {
 	init();
-	slime::init();
+	manager::init();
 	while(new_frame()) {
-		slime::compute();
+		manager::compute();
 		render();
 	}
-	slime::shutdown();
+	manager::shutdown();
 	shutdown();
 }

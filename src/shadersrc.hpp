@@ -64,6 +64,26 @@
 "	imageStore(coloredImage, pos, vec4(colored, 1));\n" \
 "}\n" \
 ""
+#define RT_GLSL \
+"#version 460\n" \
+"\n" \
+"layout(local_size_x = 8, local_size_y = 8) in;\n" \
+"\n" \
+"layout(binding = 0, rgba32f) uniform image2D image;\n" \
+"// layout(binding = 0, std430) buffer _block_name {\n" \
+"// };\n" \
+"\n" \
+"void main() {\n" \
+"	ivec2 size = imageSize(image);\n" \
+"	if(gl_GlobalInvocationID.x >= size.x || gl_GlobalInvocationID.y >= size.y)\n" \
+"		return;\n" \
+"	ivec2 iC = ivec2(gl_GlobalInvocationID.xy);\n" \
+"	vec2 uv = iC / vec2(imageSize(image) - 1);\n" \
+"	vec2 fromCenter = uv - 0.5;\n" \
+"	if(dot(fromCenter, fromCenter) <= 0.20)\n" \
+"		imageStore(image, iC, vec4(uv, 1, 1));\n" \
+"}\n" \
+""
 #define SLIME_GLSL \
 "#version 460\n" \
 "\n" \

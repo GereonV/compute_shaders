@@ -7,4 +7,10 @@ namespace slime {
 	void compute() noexcept;
 }
 
+namespace rt {
+	void init() noexcept;
+	void shutdown() noexcept;
+	void compute() noexcept;
+}
+
 #endif // CS_MANAGERS_HPP
