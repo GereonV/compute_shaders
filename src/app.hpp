@@ -4,7 +4,7 @@
 struct size { int width, height; };
 
 void init() noexcept;
-void deinit() noexcept;
+void shutdown() noexcept;
 [[noreturn]] void terminate(char const * message) noexcept;
 [[nodiscard]] bool new_frame() noexcept; // whether to keep running
 void render() noexcept;

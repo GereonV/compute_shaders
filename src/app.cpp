@@ -52,7 +52,7 @@ void init() noexcept {
 	glEnableVertexAttribArray(0);
 }
 
-void deinit() noexcept {
+void shutdown() noexcept {
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
