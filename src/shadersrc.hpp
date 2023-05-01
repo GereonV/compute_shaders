@@ -69,19 +69,57 @@
 "\n" \
 "layout(local_size_x = 8, local_size_y = 8) in;\n" \
 "\n" \
+"struct Sphere {\n" \
+"	vec4 data; // (center.xyz, radius)\n" \
+"};\n" \
+"\n" \
+"layout(location = 0) uniform float fov = 1;\n" \
 "layout(binding = 0, rgba32f) uniform image2D image;\n" \
-"// layout(binding = 0, std430) buffer _block_name {\n" \
-"// };\n" \
+"layout(binding = 0, std430) buffer _block_name {\n" \
+"	Sphere spheres[];\n" \
+"};\n" \
+"\n" \
+"// Circle defined by c & r: p: length(p-c)²=r²\n" \
+"// Ray defined by o & d: p: p=o+l*d\n" \
+"// length(o+l*d-c)²=r²\n" \
+"// =(o.x+l*d.x-c.x)²+(o.y+l*d.y-c.y)²\n" \
+"// =o.x²+2*o.x*l*d.x+l²*d.x²-2*(o.x+l*d.x)*c.x+c.x²+o.y²+2*o.y*l*d.y+l²*d.y²-2*(o.y+l*d.y)*c.y+c.y²\n" \
+"// =l²(d.x²+d.y²)+l*2*(d.x*(o.x-c.x)+d.y*(o.y-c.y))+(o.x²-2*o.x*c.x+c.x²+o.y²-2*o.y*c.y+c.y²)\n" \
+"// =l²length(d)²+l*2*dot(d,o-c)+length(o-c)²\n" \
+"// <=>l²length(d)²+l*2*dot(d,o-c)+length(o-c)²-r²\n" \
+"// length(d)²=1;p=2*dot(d,o-c);q=length(o-c)²-r²\n" \
+"// l=p+sqrt(p²-4q)/-2\n" \
+"float distanceToSphere(vec3 o, vec3 d, vec3 c, float r) {\n" \
+"	vec3 co = o - c;\n" \
+"	float p = 2 * dot(d, o - c);\n" \
+"	float q = dot(co, co) - r * r;\n" \
+"	float discriminator = p * p - 4 * q;\n" \
+"	if(discriminator < 0)\n" \
+"		return -1;\n" \
+"	float numerator = p + sqrt(discriminator);\n" \
+"	if(numerator > 0)\n" \
+"		return -1;\n" \
+"	return -numerator/2;\n" \
+"}\n" \
 "\n" \
 "void main() {\n" \
 "	ivec2 size = imageSize(image);\n" \
 "	if(gl_GlobalInvocationID.x >= size.x || gl_GlobalInvocationID.y >= size.y)\n" \
 "		return;\n" \
 "	ivec2 iC = ivec2(gl_GlobalInvocationID.xy);\n" \
-"	vec2 uv = iC / vec2(imageSize(image) - 1);\n" \
-"	vec2 fromCenter = uv - 0.5;\n" \
-"	if(dot(fromCenter, fromCenter) <= 0.20)\n" \
-"		imageStore(image, iC, vec4(uv, 1, 1));\n" \
+"	vec2 uv = iC / vec2(size - 1);\n" \
+"\n" \
+"	vec3 origin = vec3(0);\n" \
+"	float maxX = tan(fov / 2);\n" \
+"	vec2 max = {maxX, maxX * size.y / size.x};\n" \
+"	vec3 dir = normalize(vec3((2 * uv - 1) * max, -1));\n" \
+"	vec4 s = spheres[0].data;\n" \
+"	vec3 c = s.xyz;\n" \
+"	float r = s.w;\n" \
+"\n" \
+"	float d = distanceToSphere(origin, dir, c, r);\n" \
+"	vec3 col = d == -1 ? vec3(0) : abs(normalize(origin + d * dir - c));\n" \
+"	imageStore(image, iC, vec4(col, 1));\n" \
 "}\n" \
 ""
 #define SLIME_GLSL \

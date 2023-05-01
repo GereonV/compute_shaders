@@ -9,7 +9,6 @@
 #include "shader.hpp"
 #include "shadersrc.hpp"
 
-
 struct agent {
 	float x, y; // pixels
 	float angle_radians;
